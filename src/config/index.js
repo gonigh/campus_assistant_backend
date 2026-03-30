@@ -43,6 +43,18 @@ module.exports = {
     expiresIn: '7d'
   },
 
+  // AI Agent配置
+  agent: {
+    // AI服务提供商：deepseek
+    provider: 'deepseek',
+    // DeepSeek配置
+    deepseek: {
+      apiKey: process.env.DEEPSEEK_API_KEY || '',
+      model: process.env.DEEPSEEK_MODEL || 'deepseek-chat',
+      maxTokens: 4096
+    }
+  },
+
   // 预设提醒时间点（分钟）
   reminderPresets: [15, 30, 60, 120, 1440, 2880, 4320],
 

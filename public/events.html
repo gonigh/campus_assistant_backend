@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>校园事件列表</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+      background: #f5f5f5;
+      color: #333;
+      line-height: 1.6;
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+
+    .header {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      padding: 30px 20px;
+      border-radius: 12px;
+      margin-bottom: 30px;
+      text-align: center;
+    }
+
+    .header h1 {
+      font-size: 28px;
+      margin-bottom: 10px;
+    }
+
+    .header p {
+      opacity: 0.9;
+      font-size: 14px;
+    }
+
+    .filters {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 20px;
+      flex-wrap: wrap;
+    }
+
+    .filter-btn {
+      padding: 8px 16px;
+      border: none;
+      background: white;
+      border-radius: 20px;
+      cursor: pointer;
+      font-size: 14px;
+      transition: all 0.3s;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+
+    .filter-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+    }
+
+    .filter-btn.active {
+      background: #667eea;
+      color: white;
+    }
+
+    .event-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+      gap: 20px;
+    }
+
+    .event-card {
+      background: white;
+      border-radius: 12px;
+      padding: 20px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+      transition: all 0.3s;
+    }
+
+    .event-card:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+    }
+
+    .event-type {
+      display: inline-block;
+      padding: 4px 12px;
+      border-radius: 12px;
+      font-size: 12px;
+      font-weight: 500;
+      margin-bottom: 12px;
+    }
+
+    .event-title {
+      font-size: 18px;
+      font-weight: 600;
+      margin-bottom: 12px;
+      color: #1a1a1a;
+      line-height: 1.4;
+    }
+
+    .event-meta {
+      font-size: 13px;
+      color: #666;
+      margin-bottom: 16px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .event-meta svg {
+      width: 14px;
+      height: 14px;
+      fill: currentColor;
+    }
+
+    .time-slots {
+      border-top: 1px solid #eee;
+      padding-top: 16px;
+    }
+
+    .time-slots-title {
+      font-size: 13px;
+      color: #888;
+      margin-bottom: 10px;
+      font-weight: 500;
+    }
+
+    .time-slot {
+      background: #f8f9fa;
+      border-radius: 8px;
+      padding: 12px;
+      margin-bottom: 8px;
+    }
+
+    .time-slot:last-child {
+      margin-bottom: 0;
+    }
+
+    .time-slot-name {
+      font-size: 14px;
+      font-weight: 500;
+      color: #333;
+      margin-bottom: 6px;
+    }
+
+    .time-slot-time {
+      font-size: 13px;
+      color: #667eea;
+      font-weight: 500;
+    }
+
+    .time-slot-location {
+      font-size: 12px;
+      color: #888;
+      margin-top: 4px;
+    }
+
+    .loading {
+      text-align: center;
+      padding: 60px 20px;
+      color: #666;
+    }
+
+    .loading::after {
+      content: '';
+      display: inline-block;
+      width: 20px;
+      height: 20px;
+      border: 2px solid #667eea;
+      border-radius: 50%;
+      border-top-color: transparent;
+      animation: spin 1s linear infinite;
+      margin-left: 10px;
+      vertical-align: middle;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    .empty {
+      text-align: center;
+      padding: 60px 20px;
+      color: #999;
+    }
+
+    .empty-icon {
+      font-size: 48px;
+      margin-bottom: 16px;
+    }
+
+    .no-slots {
+      font-size: 13px;
+      color: #999;
+      font-style: italic;
+      padding: 8px 0;
+    }
+
+    @media (max-width: 768px) {
+      .event-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .header h1 {
+        font-size: 22px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>校园事件列表</h1>
+      <p id="update-time"></p>
+    </div>
+
+    <div class="filters" id="filters">
+      <button class="filter-btn active" data-type="">全部</button>
+    </div>
+
+    <div class="event-grid" id="event-grid">
+      <div class="loading">加载中</div>
+    </div>
+  </div>
+
+  <script>
+    const API_BASE = '/api';
+
+    // 类型颜色映射
+    const typeColors = {
+      'type_contest': { bg: '#e8f5e9', color: '#2e7d32' },
+      'type_exam_mgmt': { bg: '#fff3e0', color: '#e65100' },
+      'default': { bg: '#e3f2fd', color: '#1565c0' }
+    };
+
+    function getTypeStyle(typeCode) {
+      return typeColors[typeCode] || typeColors.default;
+    }
+
+    function formatDate(dateStr) {
+      const date = new Date(dateStr);
+      return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+    }
+
+    function formatTime(dateStr) {
+      if (!dateStr) return '';
+      const date = new Date(dateStr);
+      return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
+    }
+
+    function formatDateTime(dateStr) {
+      if (!dateStr) return '';
+      return `${formatDate(dateStr)} ${formatTime(dateStr)}`;
+    }
+
+    async function fetchEvents() {
+      try {
+        const response = await fetch(`${API_BASE}/events?pageSize=100`);
+        const result = await response.json();
+
+        if (result.code === 0) {
+          return result.data.list;
+        } else {
+          throw new Error(result.message || '获取数据失败');
+        }
+      } catch (error) {
+        console.error('获取事件失败:', error);
+        return [];
+      }
+    }
+
+    function renderFilters(events) {
+      const typeMap = new Map();
+      events.forEach(event => {
+        if (event.type && event.type.type_id) {
+          typeMap.set(event.type.type_id, event.type);
+        }
+      });
+
+      const filtersEl = document.getElementById('filters');
+      filtersEl.innerHTML = '<button class="filter-btn active" data-type="">全部</button>';
+
+      typeMap.forEach((type, typeId) => {
+        const btn = document.createElement('button');
+        btn.className = 'filter-btn';
+        btn.dataset.type = typeId;
+        btn.textContent = type.type_name || typeId;
+        filtersEl.appendChild(btn);
+      });
+
+      filtersEl.querySelectorAll('.filter-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          filtersEl.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+          btn.classList.add('active');
+          renderEvents(btn.dataset.type);
+        });
+      });
+    }
+
+    function renderEvents(filterType = '') {
+      const grid = document.getElementById('event-grid');
+
+      if (window.events.length === 0) {
+        grid.innerHTML = '<div class="empty"><div class="empty-icon">📭</div><p>暂无事件数据</p></div>';
+        return;
+      }
+
+      const filtered = filterType
+        ? window.events.filter(e => e.type && e.type.type_id === filterType)
+        : window.events;
+
+      if (filtered.length === 0) {
+        grid.innerHTML = '<div class="empty"><div class="empty-icon">📭</div><p>该分类下暂无事件</p></div>';
+        return;
+      }
+
+      grid.innerHTML = filtered.map(event => {
+        const typeStyle = getTypeStyle(event.type?.type_code);
+        const timeSlots = event.time_slots || [];
+
+        return `
+          <div class="event-card">
+            <span class="event-type" style="background: ${typeStyle.bg}; color: ${typeStyle.color}">
+              ${event.type?.type_name || '未分类'}
+            </span>
+            <h3 class="event-title">${escapeHtml(event.title)}</h3>
+            <div class="event-meta">
+              <svg viewBox="0 0 24 24"><path d="M19 4h-1V2h-2v2H8V2H6v2H5c-1.11 0-1.99.9-1.99 2L3 20c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 16H5V9h14v11zM9 11H7v2h2v-2zm4 0h-2v2h2v-2zm4 0h-2v2h2v-2z"/></svg>
+              <span>发布于 ${formatDate(event.published_at)}</span>
+            </div>
+            <div class="time-slots">
+              <div class="time-slots-title">时间点 (${timeSlots.length})</div>
+              ${timeSlots.length === 0
+                ? '<div class="no-slots">暂无具体时间安排</div>'
+                : timeSlots.map(slot => `
+                    <div class="time-slot">
+                      <div class="time-slot-name">${escapeHtml(slot.slot_name)}</div>
+                      <div class="time-slot-time">
+                        ${slot.is_all_day ? formatDate(slot.start_time) : formatDateTime(slot.start_time)}
+                        ${slot.end_time ? ' - ' + (slot.is_all_day ? formatDate(slot.end_time) : formatDateTime(slot.end_time)) : ''}
+                      </div>
+                      ${slot.location ? `<div class="time-slot-location">📍 ${escapeHtml(slot.location)}</div>` : ''}
+                    </div>
+                  `).join('')
+              }
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function escapeHtml(str) {
+      if (!str) return '';
+      const div = document.createElement('div');
+      div.textContent = str;
+      return div.innerHTML;
+    }
+
+    async function init() {
+      const events = await fetchEvents();
+      window.events = events;
+
+      document.getElementById('update-time').textContent = `共 ${events.length} 个事件，更新于 ${new Date().toLocaleString('zh-CN')}`;
+
+      renderFilters(events);
+      renderEvents();
+    }
+
+    init();
+  </script>
+</body>
+</html>
